@@ -622,6 +622,12 @@ bool Player::Create(ObjectGuid::LowType guidlow, WorldPackets::Character::Charac
     }
 
     uint32 startLevel = rEntry->StartingLevel > cEntry->StartingLevel ? rEntry->StartingLevel : cEntry->StartingLevel;
+
+    if (createInfo->Class == CLASS_DEATH_KNIGHT)
+        startLevel = START_DK_LEVEL;
+    else if (createInfo->Class == CLASS_DEMON_HUNTER)
+        startLevel = START_DH_LEVEL;
+    
     if (sWorld->getIntConfig(CONFIG_START_PLAYER_LEVEL) > startLevel)
         startLevel = sWorld->getIntConfig(CONFIG_START_PLAYER_LEVEL);
 
@@ -3931,12 +3937,12 @@ void Player::GiveLevel(uint8 level)
 void Player::InitTalentForLevel()
 {
     uint8 level = getLevel();
-    if (level < 10)
-        ResetTalentSpecialization();
+    // if (level < 10)
+    //     ResetTalentSpecialization();
 
     uint8 talentPointsForLevel = CalculateTalentsPoints();
 
-    if (level < 15)
+    if (level > 150)
         ResetTalents(true);
     else
     {
@@ -33207,13 +33213,13 @@ void Player::ResetTalentSpecialization()
     RemoveAllPvPTalent();
     RemoveSpecializationSpells();
 
-    if (getLevel() < 10)
-    {
-        ChrSpecializationEntry const* defaultSpec = ASSERT_NOTNULL(sDB2Manager.GetDefaultChrSpecializationForClass(getClass()));
-        SetPrimarySpecialization(defaultSpec->ID);
-        SetActiveTalentGroup(defaultSpec->OrderIndex);
-        SetUInt32Value(PLAYER_FIELD_CURRENT_SPEC_ID, defaultSpec->ID);
-    }
+    // if (getLevel() < 10)
+    // {
+    //     ChrSpecializationEntry const* defaultSpec = ASSERT_NOTNULL(sDB2Manager.GetDefaultChrSpecializationForClass(getClass()));
+    //     SetPrimarySpecialization(defaultSpec->ID);
+    //     SetActiveTalentGroup(defaultSpec->OrderIndex);
+    //     SetUInt32Value(PLAYER_FIELD_CURRENT_SPEC_ID, defaultSpec->ID);
+    // }
 
     LearnSpecializationSpells();
 

@@ -444,6 +444,7 @@ private:
     QuestItemList* FillNonQuestNonFFAConditionalLoot(Player* player, bool presentAtLooting);
 
     GuidSet PlayersLooting;
+    GuidSet PlayersProcessedCurrencyLoot;  // Track players who have received currency from currency_loot table
     QuestItemMap PlayerCurrencies;
     QuestItemMap PlayerQuestItems;
     QuestItemMap PlayerFFAItems;

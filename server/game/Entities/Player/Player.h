@@ -1276,9 +1276,9 @@ struct ResurrectionData
     uint32 Aura;
 };
 
-static uint8 const DefaultTalentRowLevels[MAX_TALENT_TIERS] = { 15, 30, 45, 60, 75, 90, 100 };
-static uint8 const DKTalentRowLevels[MAX_TALENT_TIERS] = { 56, 57, 58, 60, 75, 90, 100 };
-static uint8 const DHTalentRowLevels[MAX_TALENT_TIERS] = { 99, 100, 102, 104, 106, 108, 110 };
+static uint8 const DefaultTalentRowLevels[MAX_TALENT_TIERS] = { 1, 5, 10, 15, 20, 25, 30 };
+static uint8 const DKTalentRowLevels[MAX_TALENT_TIERS] = { 1, 5, 10, 15, 20, 25, 30 };
+static uint8 const DHTalentRowLevels[MAX_TALENT_TIERS] = { 1, 5, 10, 15, 20, 25, 30 };
 
 struct SpecializationInfo
 {

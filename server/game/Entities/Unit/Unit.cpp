@@ -1154,7 +1154,24 @@ uint32 Unit::DealDamage(Unit* victim, uint32 damage, CleanDamage const* cleanDam
     if (victim->IsPlayer())
         victim->ToPlayer()->UpdateAchievementCriteria(CRITERIA_TYPE_HIGHEST_HIT_RECEIVED, damage);
 
-    damage /= victim->GetHealthMultiplierForTarget(this);
+    float healthMultiplier = victim->GetHealthMultiplierForTarget(this);
+    uint32 damageBeforeMultiplier = damage;
+    damage /= healthMultiplier;
+    
+    if (victim->IsCreature() && victim->ToCreature()->HasScalableLevels())
+    {
+        TC_LOG_DEBUG("entities.unit", "Unit::DealDamage: Attacker=%s (Entry %u, Level %u), Victim=Creature Entry %u (Level %u, Health %u/%u), Damage before multiplier=%u, Multiplier=%.6f, Damage after multiplier=%.0f", 
+                     IsPlayer() ? "Player" : (IsCreature() ? "Creature" : "Other"), 
+                     IsCreature() ? ToCreature()->GetEntry() : (IsPlayer() ? ToPlayer()->GetGUID().GetCounter() : 0),
+                     getLevel(),
+                     victim->ToCreature()->GetEntry(), 
+                     victim->getLevel(),
+                     victim->GetHealth(),
+                     victim->GetMaxHealth(),
+                     damageBeforeMultiplier,
+                     healthMultiplier,
+                     float(damage));
+    }
 
     if (!victim->IsControlledByPlayer() || victim->IsVehicle())
     {

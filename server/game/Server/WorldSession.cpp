@@ -1480,3 +1480,28 @@ void WorldSession::BanListHelper(PreparedQueryResult result)
 
     return;
 }
+
+void WorldSession::MoonspireHandleAddonMessage(std::string const& cmd, std::string const& payload)
+{
+    
+}
+
+void WorldSession::SendAddonMessageToPlayer(const std::string& prefix, const std::string& message)
+{
+    using namespace WorldPackets::Chat;
+
+    Chat packet;
+    packet.Initialize(
+        CHAT_MSG_ADDON,
+        LANG_ADDON,
+        GetPlayer(),
+        GetPlayer(),
+        message,
+        0,
+        "moonspireUI",
+        DEFAULT_LOCALE,
+        prefix
+    );
+    
+    SendPacket(packet.Write());
+}

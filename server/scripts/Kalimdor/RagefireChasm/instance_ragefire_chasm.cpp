@@ -25,6 +25,7 @@ ObjectData const creatureData[] =
     { NPC_DARK_SHAMAN_KORANTHAL, BOSS_DARK_SHAMAN_KORANTHAL },
     { NPC_SLAGMAW,               BOSS_SLAGMAW               },
     { NPC_LAVA_GUARD_GORDOTH,    BOSS_LAVA_GUARD_GORDOTH    },
+    { NPC_MOXU,                  BOSS_MOXU                  },
     { 0,                         0                          }  // END
 };
 
@@ -33,7 +34,8 @@ DungeonEncounterData const encounters[] =
     { BOSS_ADAROGG,               {{ 1443 }}  },
     { BOSS_DARK_SHAMAN_KORANTHAL, {{ 1444 }}  },
     { BOSS_SLAGMAW,               {{ 1445 }}  },
-    { BOSS_LAVA_GUARD_GORDOTH,    {{ 1446 }}  }
+    { BOSS_LAVA_GUARD_GORDOTH,    {{ 1446 }}  },
+    { BOSS_MOXU,                  {{ 3000 }}  }
 };
 
 class instance_ragefire_chasm : public InstanceMapScript

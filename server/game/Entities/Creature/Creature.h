@@ -861,7 +861,7 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
 
         CreatureLevelStatContainer m_levelStat;
         void GenerateScaleLevelStat(const CreatureTemplate* cInfo);
-        CreatureLevelStat const* GetScaleLevelStat(uint8 level);
+        CreatureLevelStat const* GetScaleLevelStat(uint8 level) const;
 
         std::vector<CreatureActionData> const* m_actionData[CREATURE_ACTION_TYPE_MAX];
 
@@ -896,7 +896,7 @@ class TC_GAME_API Creature : public Unit, public GridObject<Creature>, public Ma
 
         static float _GetHealthMod(int32 Rank);
         float _GetHealthModPersonal(uint32 &count);
-        float _GetHealthModForDiff();
+        float _GetHealthModForDiff() const;
         float _GetDamageModForDiff();
 
         ObjectGuid m_lootRecipient;

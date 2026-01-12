@@ -1880,6 +1880,12 @@ void Creature::SelectLevel(const CreatureTemplate* cInfo)
     SetMaxHealth(health);
     SetHealth(health);
     ResetPlayerDamageReq();
+    
+    if (HasScalableLevels())
+    {
+        TC_LOG_DEBUG("entities.unit", "Creature::SelectLevel Entry %u: SetCreateHealth=%u, SetMaxHealth=%u, Level=%u, basehp=%u, healthmod=%.3f", 
+                     GetEntry(), health, health, getLevel(), basehp, healthmod);
+    }
 
     // mana
     uint32 mana = stats->GenerateMana(cInfo);
@@ -1985,7 +1991,7 @@ void Creature::GenerateScaleLevelStat(const CreatureTemplate* cInfo)
     }
 }
 
-CreatureLevelStat const* Creature::GetScaleLevelStat(uint8 level)
+CreatureLevelStat const* Creature::GetScaleLevelStat(uint8 level) const
 {
     if (level >= m_levelStat.size())
         return nullptr;
@@ -2012,7 +2018,7 @@ float Creature::_GetHealthMod(int32 Rank)
     }
 }
 
-float Creature::_GetHealthModForDiff()
+float Creature::_GetHealthModForDiff() const
 {
     switch (m_spawnMode)
     {
@@ -3790,21 +3796,68 @@ uint8 Creature::GetLevelForTarget(WorldObject const* target) const
 
 uint64 Creature::GetMaxHealthByLevel(uint8 level) const
 {
+    // Use pre-calculated health from m_levelStat if available (for scaling creatures)
+    // This ensures consistency with what was calculated during initialization
+    if (HasScalableLevels())
+    {
+        if (CreatureLevelStat const* levelStat = GetScaleLevelStat(level))
+        {
+            TC_LOG_DEBUG("entities.unit", "Creature::GetMaxHealthByLevel Entry %u: Using pre-calculated health %u for level %u (from m_levelStat)", 
+                         GetEntry(), levelStat->healthMax, level);
+            return levelStat->healthMax;
+        }
+        else
+        {
+            TC_LOG_WARN("entities.unit", "Creature::GetMaxHealthByLevel Entry %u: HasScalableLevels but no levelStat found for level %u (m_levelStat.size=%zu)", 
+                        GetEntry(), level, m_levelStat.size());
+        }
+    }
+    
+    // Fallback to calculation if m_levelStat not available
     CreatureTemplate const* cInfo = GetCreatureTemplate();
     CreatureBaseStats const* stats = sObjectMgr->GetCreatureBaseStats(level, cInfo->unit_class);
-    return stats->GenerateHealth(cInfo);
+    
+    // Apply the same modifiers as GetCreateHealth does
+    CreatureDifficultyStat const* diffStats = GetCreatureDiffStat();
+    float healthmod = _GetHealthMod(cInfo->Classification);
+    if (!diffStats)
+        healthmod *= _GetHealthModForDiff();
+    
+    uint64 basehp = stats->GenerateHealth(cInfo, diffStats);
+    uint64 calculatedHealth = uint64(basehp * healthmod);
+    
+    TC_LOG_DEBUG("entities.unit", "Creature::GetMaxHealthByLevel Entry %u: Calculated health %u for level %u (basehp=%u, healthmod=%.3f)", 
+                 GetEntry(), calculatedHealth, level, basehp, healthmod);
+    
+    return calculatedHealth;
 }
 
 float Creature::GetHealthMultiplierForTarget(WorldObject const* target) const
 {
     if (!HasScalableLevels())
+    {
+        TC_LOG_DEBUG("entities.unit", "Creature::GetHealthMultiplierForTarget Entry %u: No scalable levels, returning 1.0", GetEntry());
         return 1.0f;
+    }
 
     uint8 levelForTarget = GetLevelForTarget(target);
-    if (getLevel() < levelForTarget)
+    uint8 creatureLevel = getLevel();
+    
+    if (creatureLevel < levelForTarget)
+    {
+        TC_LOG_DEBUG("entities.unit", "Creature::GetHealthMultiplierForTarget Entry %u: Creature level %u < target level %u, returning 1.0", 
+                     GetEntry(), creatureLevel, levelForTarget);
         return 1.0f;
+    }
 
-    return double(GetMaxHealthByLevel(levelForTarget)) / double(GetCreateHealth());
+    uint64 healthForTargetLevel = GetMaxHealthByLevel(levelForTarget);
+    uint64 createHealth = GetCreateHealth();
+    float multiplier = double(healthForTargetLevel) / double(createHealth);
+    
+    TC_LOG_DEBUG("entities.unit", "Creature::GetHealthMultiplierForTarget Entry %u: Level %u -> %u, Health %u -> %u, Multiplier = %.6f", 
+                 GetEntry(), creatureLevel, levelForTarget, createHealth, healthForTargetLevel, multiplier);
+    
+    return multiplier;
 }
 
 float Creature::GetBaseDamageForLevel(uint8 level) const

@@ -180,7 +180,7 @@ enum PvPStats : uint32
 const auto EFFECT_FIRST_FOUND = 254;
 const auto EFFECT_ALL = 255;
 
-#define MAX_CHARACTERS_PER_REALM 16
+#define MAX_CHARACTERS_PER_REALM 30
 
 enum Expansions
 {
@@ -198,8 +198,8 @@ enum Expansions
 };
 
 static uint8 const CURRENT_EXPANSION = EXPANSION_LEGION;
-static uint16 const START_DK_LEVEL = 55;
-static uint16 const START_DH_LEVEL = 98;
+static uint16 const START_DK_LEVEL = 1;
+static uint16 const START_DH_LEVEL = 1;
 
 constexpr uint32 GetMaxLevelForExpansion(uint32 expansion)
 {

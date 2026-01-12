@@ -23,7 +23,7 @@
 constexpr char const* DataHeader = "RFC";
 constexpr char const* RfCScriptName = "instance_ragefire_chasm";
 
-constexpr uint32 const EncounterCount = 4;
+constexpr uint32 const EncounterCount = 5;
 
 enum RFCDataTypes
 {
@@ -31,7 +31,8 @@ enum RFCDataTypes
     BOSS_ADAROGG               = 0,
     BOSS_DARK_SHAMAN_KORANTHAL = 1,
     BOSS_SLAGMAW               = 2,
-    BOSS_LAVA_GUARD_GORDOTH    = 3
+    BOSS_LAVA_GUARD_GORDOTH    = 3,
+    BOSS_MOXU                  = 4
 };
 
 enum RFCCreatureIds
@@ -40,7 +41,8 @@ enum RFCCreatureIds
     NPC_ADAROGG               = 61408,
     NPC_DARK_SHAMAN_KORANTHAL = 61412,
     NPC_SLAGMAW               = 61463,
-    NPC_LAVA_GUARD_GORDOTH    = 61528
+    NPC_LAVA_GUARD_GORDOTH    = 61528,
+    NPC_MOXU                  = 400000
 };
 
 template <class AI, class T>

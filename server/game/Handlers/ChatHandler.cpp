@@ -660,9 +660,33 @@ void WorldSession::HandleChatAddonMessageChannel(WorldPackets::Chat::ChatAddonMe
     HandleChatAddonMessage(CHAT_MSG_CHANNEL, packet.Prefix, packet.Text, packet.Target);
 }
 
+std::pair<std::string, std::string> SplitAddonMessage(std::string const& message)
+{
+    size_t sep = message.find(':');
+    if (sep == std::string::npos)
+        return { message, "" };
+    std::string cmd = message.substr(0, sep);
+    std::string payload = message.substr(sep + 1);
+    return { cmd, payload };
+}
+
 void WorldSession::HandleChatAddonMessage(ChatMsg type, std::string const& prefix, std::string& message, std::string const& targetName /*= ""*/)
 {
     Player* sender = GetPlayer();
+
+    if (prefix == "MOONSPIRE")
+    {
+        SendNotification("Raw message: %s", message.c_str());
+        TC_LOG_INFO("addon", "Raw addon message: %s", message.c_str());
+        auto [cmd, payload] = SplitAddonMessage(message);
+        SendNotification("cmd: %s, payload: %s", cmd.c_str(), payload.c_str());
+        TC_LOG_INFO("addon", "cmd: %s, payload: %s",  cmd.c_str(), payload.c_str());
+        if (!cmd.empty() && !payload.empty())
+        {
+            MoonspireHandleAddonMessage(cmd, payload);
+            TC_LOG_INFO("addon", "message handle sent");
+        }
+    }
 
     if (prefix.empty() || prefix.length() > 16)
         return;

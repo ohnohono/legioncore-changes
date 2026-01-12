@@ -751,6 +751,9 @@ void Loot::AutoStoreItems(bool isGO)
 // Calls processor of corresponding LootTemplate (which handles everything including references)
 bool Loot::FillLoot(uint32 lootId, LootStore const& store, Player* lootOwner, bool noGroup, bool noEmptyError, WorldObject const* lootFrom)
 {
+    TC_LOG_INFO("currency.loot", "FillLoot: ENTERED - lootId=%u store=%s player=%s noGroup=%u lootFrom=%p LootGUID=%s objEntry=%u", 
+        lootId, store.GetName(), lootOwner ? lootOwner->GetName() : "NULL", noGroup, (void*)lootFrom, GetGUID().ToString().c_str(), objEntry);
+    
     // Must be provided
     if (!lootOwner || !lootOwner->CanContact())
         return false;
@@ -833,7 +836,10 @@ bool Loot::FillLoot(uint32 lootId, LootStore const& store, Player* lootOwner, bo
     if (!tab && !shipmentBuildingType)
     {
         if (objType == 2)
+        {
+            TC_LOG_INFO("currency.loot", "FillLoot: Calling FillNotNormalLootFor from GameObject path (line 836) for Entry=%u", objEntry);
             FillNotNormalLootFor(lootOwner, true);
+        }
 
         if (!noEmptyError)
             TC_LOG_ERROR("sql.sql", "Table '%s' loot id #%u used but it doesn't have records.", store.GetName(), lootId);
@@ -902,7 +908,10 @@ bool Loot::FillLoot(uint32 lootId, LootStore const& store, Player* lootOwner, bo
 
         for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
             if (Player* player = itr->getSource())   // should actually be looted object instead of lootOwner but looter has to be really close so doesnt really matter
+            {
+                TC_LOG_INFO("currency.loot", "FillLoot: Calling FillNotNormalLootFor from GROUP path (line 908) for Entry=%u player=%s", objEntry, player->GetName());
                 FillNotNormalLootFor(player, player->IsAtGroupRewardDistance(lootOwner));
+            }
 
         for (size_t i = 0; i < items.size(); ++i)
         {
@@ -918,7 +927,10 @@ bool Loot::FillLoot(uint32 lootId, LootStore const& store, Player* lootOwner, bo
         TC_LOG_DEBUG("loot", "Loot::FillLoot isOnlyQuest && creature && creature->CanShared size %zu", savethreatlist->size());
 
         if (savethreatlist->empty())
+        {
+            TC_LOG_INFO("currency.loot", "FillLoot: Calling FillNotNormalLootFor from QUEST/THREAT path (line 924) for Entry=%u player=%s", objEntry, lootOwner->GetName());
             FillNotNormalLootFor(lootOwner, true);
+        }
         else
         {
             for (GuidSet::const_iterator itr = savethreatlist->begin(); itr != savethreatlist->end(); ++itr)
@@ -928,6 +940,7 @@ bool Loot::FillLoot(uint32 lootId, LootStore const& store, Player* lootOwner, bo
                     if (!creature->isTappedBy(looter))
                         continue;
 
+                    TC_LOG_INFO("currency.loot", "FillLoot: Calling FillNotNormalLootFor from THREAT LIST path (line 934) for Entry=%u player=%s", objEntry, looter->GetName());
                     FillNotNormalLootFor(looter, true);
                 }
             }
@@ -936,6 +949,7 @@ bool Loot::FillLoot(uint32 lootId, LootStore const& store, Player* lootOwner, bo
     else
     {
         TC_LOG_DEBUG("loot", "Loot::FillLoot else");
+        TC_LOG_INFO("currency.loot", "FillLoot: Calling FillNotNormalLootFor from ELSE path (line 942) for Entry=%u player=%s", objEntry, lootOwner->GetName());
         FillNotNormalLootFor(lootOwner, true);
     }
 
@@ -973,7 +987,10 @@ LootItem const* Loot::GetItemInSlot(uint32 lootSlot) const
 void Loot::FillNotNormalLootFor(Player* player, bool presentAtLooting)
 {
     ObjectGuid::LowType plguid = player->GetGUIDLow();
+    ObjectGuid lootGuid = GetGUID();
 
+    TC_LOG_INFO("currency.loot", "FillNotNormalLootFor: ENTERED for player %s (GUID: %u) Entry=%u presentAtLooting=%u LootGUID=%s PlayersProcessedCurrencyLoot.size()=%zu", 
+        player->GetName(), plguid, objEntry, presentAtLooting, lootGuid.ToString().c_str(), PlayersProcessedCurrencyLoot.size());
     TC_LOG_DEBUG("loot", "Loot::FillNotNormalLootFor plguid %lu presentAtLooting %u PlayerQuestItems %zu", plguid, presentAtLooting, PlayerQuestItems.size());
 
     QuestItemMap::const_iterator qmapitr = PlayerCurrencies.find(plguid);
@@ -996,22 +1013,73 @@ void Loot::FillNotNormalLootFor(Player* player, bool presentAtLooting)
     if (!presentAtLooting)
         return;
 
-    // Process currency items
-    std::list<CurrencyLoot> temp = sObjectMgr->GetCurrencyLoot(objEntry, objType, _DifficultyID);
-    for (std::list<CurrencyLoot>::iterator i = temp.begin(); i != temp.end(); ++i)
+    // Process currency items from currency_loot table
+    // Only process currency_loot in main loot (not personal loot) to prevent duplicate processing
+    // Personal loot is generated separately and currency should only be awarded once from the main loot
+    if (personal)
+    {
+        TC_LOG_INFO("currency.loot", "FillNotNormalLootFor: Skipping currency_loot processing for personal loot (Entry=%u, player=%s)", 
+            objEntry, player->GetName());
+        return;
+    }
+
+    // Check if we've already processed currency_loot for this player to prevent duplicates
+    ObjectGuid playerGuid = player->GetGUID();
+    bool alreadyProcessed = PlayersProcessedCurrencyLoot.find(playerGuid) != PlayersProcessedCurrencyLoot.end();
+    TC_LOG_INFO("currency.loot", "FillNotNormalLootFor: Checking duplicate - playerGuid=%s alreadyProcessed=%s set_size=%zu", 
+        playerGuid.ToString().c_str(), alreadyProcessed ? "YES" : "NO", PlayersProcessedCurrencyLoot.size());
+    
+    if (!alreadyProcessed)
+    {
+        PlayersProcessedCurrencyLoot.insert(playerGuid);
+        TC_LOG_INFO("currency.loot", "FillNotNormalLootFor: Added player to set, new size=%zu", PlayersProcessedCurrencyLoot.size());
+        std::list<CurrencyLoot> temp = sObjectMgr->GetCurrencyLoot(objEntry, objType, _DifficultyID);
+        TC_LOG_INFO("currency.loot", "FillNotNormalLootFor: Processing currency_loot for Entry=%u Type=%u DifficultyID=%u, found %zu entries for player %s (GUID: %u)", 
+            objEntry, objType, _DifficultyID, temp.size(), player->GetName(), player->GetGUIDLow());
+        
+        for (std::list<CurrencyLoot>::iterator i = temp.begin(); i != temp.end(); ++i)
+    {
+        TC_LOG_INFO("currency.loot", "FillNotNormalLootFor: Processing entry - CurrencyId=%u CurrencyAmount=%u CurrencyMaxAmount=%u Chance=%f LootMode=%u", 
+            i->CurrencyId, i->CurrencyAmount, i->currencyMaxAmount, i->chance, i->lootmode);
+        
         if(CurrencyTypesEntry const* proto = sCurrencyTypesStore.LookupEntry(i->CurrencyId))
         {
             auto Roll = static_cast<float>(rand_chance());
+            TC_LOG_INFO("currency.loot", "FillNotNormalLootFor: Chance roll - Roll=%f Required=%f (chance check: %s)", 
+                Roll, i->chance, (i->chance >= 100.0f || i->chance >= Roll) ? "PASS" : "FAIL");
+            
             if (i->chance < 100.0f && i->chance < Roll)
+            {
+                TC_LOG_INFO("currency.loot", "FillNotNormalLootFor: Chance roll failed, skipping currency");
                 continue;
+            }
 
-            uint32 amount = 0.5f + urand(i->CurrencyAmount, i->currencyMaxAmount) * sDB2Manager.GetCurrencyPrecision(proto->ID);
+            uint32 urandResult = urand(i->CurrencyAmount, i->currencyMaxAmount);
+            float precision = sDB2Manager.GetCurrencyPrecision(proto->ID);
+            uint32 amount = 0.5f + urandResult * precision;
+            
+            TC_LOG_INFO("currency.loot", "FillNotNormalLootFor: Currency calculation - urand(%u, %u)=%u, precision=%f, calculation: 0.5f + %u * %f = %f, final amount=%u", 
+                i->CurrencyAmount, i->currencyMaxAmount, urandResult, precision, urandResult, precision, (0.5f + urandResult * precision), amount);
+            TC_LOG_INFO("currency.loot", "FillNotNormalLootFor: Giving currency to player %s (GUID: %u) - CurrencyId=%u Amount=%u", 
+                player->GetName(), player->GetGUIDLow(), i->CurrencyId, amount);
+            
             player->ModifyCurrency(i->CurrencyId, amount, true);
 
             // log Veiled Argunite and Wakening Essence currency
             if (i->CurrencyId == 1508 || i->CurrencyId == 1533)
                 sLog->outWarden("Player %s (GUID: %u) adds a currency value %u (%u) from not normal loot %u and type %u", player->GetName(), player->GetGUIDLow(), amount, i->CurrencyId, objEntry, objType);
         }
+        else
+        {
+            TC_LOG_ERROR("currency.loot", "FillNotNormalLootFor: CurrencyId=%u not found in CurrencyTypesStore!", i->CurrencyId);
+        }
+        }
+    }
+    else
+    {
+        TC_LOG_INFO("currency.loot", "FillNotNormalLootFor: Currency_loot already processed for player %s (GUID: %u), skipping duplicate processing", 
+            player->GetName(), player->GetGUIDLow());
+    }
 }
 
 void Loot::clear()
@@ -1050,7 +1118,10 @@ void Loot::clear()
         PlayerNonQuestNonFFANonCurrencyConditionalItems.clear();
     }
 
+    TC_LOG_INFO("currency.loot", "Loot::clear: Clearing PlayersProcessedCurrencyLoot (size was %zu) for LootGUID=%s Entry=%u", 
+        PlayersProcessedCurrencyLoot.size(), GetGUID().ToString().c_str(), objEntry);
     PlayersLooting.clear();
+    PlayersProcessedCurrencyLoot.clear();
     items.clear();
     quest_items.clear();
     gold = 0;
@@ -2029,9 +2100,9 @@ void LootTemplate::LootGroup::Process(Loot& loot, LootTemplate const* tab) const
 
             if (ItemTemplate const* _proto = sObjectMgr->GetItemTemplate(item->itemid))
             {
-                if (tab->_isZoneLoot)
-                    if(!lootOwner->CanGetItemForLoot(_proto, loot._specCheck))
-                        duplicate = true;
+                // Check armor type restrictions for all loot types (not just zone loot)
+                if(!lootOwner->CanGetItemForLoot(_proto, loot._specCheck))
+                    duplicate = true;
 
                 uint8 _item_counter = 0;
                 for (LootItemList::const_iterator _item = loot.items.begin(); _item != loot.items.end(); ++_item)
@@ -2621,9 +2692,9 @@ void LootTemplate::Process(Loot& loot, bool rate, uint8 groupId) const
         {
             if (ItemTemplate const* _proto = sObjectMgr->GetItemTemplate(i->itemid))
             {
-                if (_isZoneLoot)
-                    if(!lootOwner->CanGetItemForLoot(_proto, loot._specCheck))
-                        continue;
+                // Check armor type restrictions for all loot types (not just zone loot)
+                if(!lootOwner->CanGetItemForLoot(_proto, loot._specCheck))
+                    continue;
 
                 uint8 _item_counter = 0;
                 LootItemList::const_iterator _item = loot.items.begin();

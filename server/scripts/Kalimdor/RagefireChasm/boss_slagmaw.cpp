@@ -31,6 +31,14 @@ enum SlagmawSpells
     SPELL_MAGNAW_TELEPORT_WEST  = 119428  // Serverside
 };
 
+Position const SlagmawTeleportPositions[4] = 
+{
+    {-225.288, 164.8182, -25.65, 3.933},//n
+    {-228.07, 135.326, -24.46, 2.322},//e
+    {-262.4424, 136.401, -23.58, 0.646643},//s
+    {-257.857, 173.358, -25.265, 5.5386}//w
+};
+
 enum SlagmawEvents
 {
     EVENT_LAVA_SPIT       = 1,
@@ -50,13 +58,18 @@ std::array<uint32, 4> const SlagmawTeleportSpells =
 // 61463 - Slagmaw
 struct boss_slagmaw : public BossAI
 {
-    boss_slagmaw(Creature* creature) : BossAI(creature, BOSS_SLAGMAW), _lavaSpitCounter(0), _lastTeleportSpell(SPELL_MAGNAW_TELEPORT_WEST) { }
+    boss_slagmaw(Creature* creature) : BossAI(creature, BOSS_SLAGMAW), _lavaSpitCounter(0), _lastTeleportSpell(SPELL_MAGNAW_TELEPORT_WEST) 
+    {
+        SetCombatMovement(false);
+    }
 
     void Reset() override
     {
         _Reset();
         _lavaSpitCounter = 0;
         _lastTeleportSpell = SPELL_MAGNAW_TELEPORT_WEST;
+        SetCombatMovement(false);
+        // me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE);
     }
 
     void JustDied(Unit* /*killer*/) override
@@ -90,13 +103,31 @@ struct boss_slagmaw : public BossAI
         events.ScheduleEvent(EVENT_TELEPORT, 3s);
     }
 
-    uint32 GetNextTeleportSpell()
+    int8 _lastTeleportIndex = -1;
+    uint8 GetNextTeleportIndex()
     {
-        std::array<uint32, 3> teleportSpells = { };
-        std::ranges::remove_copy(SlagmawTeleportSpells, teleportSpells.begin(), _lastTeleportSpell);
-        _lastTeleportSpell = Trinity::Containers::SelectRandomContainerElement(teleportSpells);
-        return _lastTeleportSpell;
+        std::array<uint8, 3> indices = { };
+        uint8 writeIdx = 0;
+
+        // Fill with 0..3 except the last teleport index
+        for (uint8 i = 0; i < 4; ++i)
+        {
+            if (i == _lastTeleportIndex)
+                continue;
+            indices[writeIdx++] = i;
+        }
+
+        uint8 newIndex = Trinity::Containers::SelectRandomContainerElement(indices);
+        _lastTeleportIndex = newIndex;
+        return newIndex;
     }
+    // uint32 GetNextTeleportSpell()
+    // {
+    //     std::array<uint32, 3> teleportSpells = { };
+    //     std::ranges::remove_copy(SlagmawTeleportSpells, teleportSpells.begin(), _lastTeleportSpell);
+    //     _lastTeleportSpell = Trinity::Containers::SelectRandomContainerElement(teleportSpells);
+    //     return _lastTeleportSpell;
+    // }
 
     void UpdateAI(uint32 diff) override
     {
@@ -131,7 +162,10 @@ struct boss_slagmaw : public BossAI
             }
             case EVENT_TELEPORT:
             {
-                DoCastSelf(GetNextTeleportSpell());
+                uint8 index = GetNextTeleportIndex();
+
+                me->NearTeleportTo(SlagmawTeleportPositions[index], true);
+
                 events.ScheduleEvent(EVENT_EMERGE, 1s);
                 break;
             }
